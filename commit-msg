@@ -1,0 +1,202 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+##########################################################################
+# Commit message hook - For better commit messages
+# This hook checks your commit messages according to following rules:
+#  - Subject line should be 50 characters long or less
+#  - First letter in subject line is in upper-case
+#  - Subject line should not end with period
+#  - Subject line has more than one word in it
+#  - Subject line is in imperative mood
+#  - Second line is empty
+#  - Description lines are 72 characters or less
+#  - Description is more than one word long.
+# The hook accepts tags in front of the commit message, for example
+# if you want to specify part of the project the commit refers to.
+# Example: git commit -m "[Products] Add new product model"
+#
+# Author: HooVee
+# Github page: https://github.com/HooVee/commit-msg-hook
+# License: MIT
+###########################################################################
+
+import sys, os, re
+from subprocess import check_output
+
+
+IMPERATIVES = ['accept', 'access', 'add', 'adjust', 'aggregate', 'allow',
+               'append', 'apply', 'archive', 'assert', 'assign', 'attempt',
+               'authenticate', 'authorize', 'break', 'build', 'cache', 
+               'calculate', 'call', 'cancel', 'capture', 'change',
+               'check', 'clean', 'clear', 'close', 'collect', 'combine', 
+               'comment', 'commit', 'compare', 'compute', 'configure', 'confirm', 
+               'connect', 'construct', 'control', 'convert', 'copy', 'count', 
+               'create', 'customize', 'declare', 'decode', 'decorate', 
+               'define', 'delegate', 'delete', 'deprecate', 'derive', 
+               'describe', 'detect', 'determine', 'display', 'download', 
+               'drop', 'dump', 'emit', 'empty', 'enable', 'encapsulate', 
+               'encode', 'end', 'ensure', 'enumerate', 'establish', 'evaluate', 
+               'examine', 'execute', 'exit', 'expand', 'expect', 'export', 
+               'extend', 'extract', 'feed', 'fetch', 'fill', 'filter', 
+               'finalize', 'find', 'fire', 'fix', 'flag', 'force', 'format', 
+               'forward', 'generate', 'get', 'give', 'go', 'group', 'handle', 
+               'help', 'hold', 'identify', 'implement', 'import', 'improve', 
+               'indicate', 'init', 'initalise', 'initialise', 'initialize', 
+               'input', 'insert', 'instantiate', 'intercept', 'invoke', 
+               'iterate', 'join', 'keep', 'launch', 'list', 'listen', 'load', 
+               'log', 'look', 'make', 'manage', 'manipulate', 'map', 'mark', 
+               'match', 'merge', 'mock', 'modify', 'monitor', 'move', 'normalize', 
+               'note', 'obtain', 'open', 'output', 'override', 'overwrite', 
+               'pad', 'parse', 'partial', 'pass', 'perform', 'persist', 
+               'pick', 'plot', 'poll', 'populate', 'post', 'prepare', 'print',
+               'process', 'produce', 'provide', 'publish', 'pull', 'put', 
+               'query', 'raise', 'read', 'record', 'refactor', 'refer', 
+               'refresh', 'register', 'reload', 'remove', 'rename', 'render', 
+               'replace', 'reply', 'report', 'represent', 'request', 'require', 
+               'reset', 'resolve', 'retrieve', 'return', 'revert', 'roll', 
+               'rollback', 'round', 'run', 'sample', 'save', 'scan', 'search', 
+               'select', 'send', 'serialise', 'serialize', 'serve', 'set', 
+               'show', 'simulate', 'source', 'specify', 'split', 'start', 
+               'step', 'stop', 'store', 'strip', 'submit', 'subscribe', 'sum',
+               'swap', 'sync', 'synchronise', 'synchronize', 'take', 'tear', 
+               'test', 'time', 'transform', 'translate', 'transmit', 
+               'truncate', 'try', 'turn', 'tweak', 'update', 'upload', 'use', 
+               'validate', 'verify', 'view', 'wait', 'walk', 'wrap', 'write', 
+               'yield']
+
+BLACKLIST_FIRST_WORDS = ['a', 'an', 'the', 'action', 'always', 'api', 'base', 
+                         'basic', 'business', 'calculation', 'callback', 
+                         'collection', 'common', 'constructor', 'convenience', 
+                         'convenient', 'current', 'currently', 'custom', 'data', 
+                         'data', 'default', 'deprecated', 'description', 'dict', 
+                         'dictionary', 'does', 'dummy', 'example', 'factory', 
+                         'false', 'final', 'formula', 'function', 'generic', 
+                         'handler', 'handler', 'helper', 'here', 'hook', 
+                         'implementation', 'importantly', 'internal', 'it', 
+                         'main', 'method', 'module', 'new', 'number', 'optional', 
+                         'package', 'placeholder', 'reference', 'result', 'same', 
+                         'schema', 'setup', 'should', 'simple', 'some', 'special', 
+                         'sql', 'standard', 'static', 'string', 'subclasses', 
+                         'that', 'these', 'this', 'true', 'unique', 'unit', 
+                         'utility', 'what', 'wrapper']
+
+
+def is_in_imperative_mood(line, IMPERATIVES, BLACKLIST_FIRST_WORDS):
+    """
+    Check the line is in imperative mood.
+    """
+    words = line.split(' ')
+    if words[0].lower() in BLACKLIST_FIRST_WORDS:
+        return False
+    if words[0].lower() in IMPERATIVES:
+        return True
+    return False
+
+
+def first_letter_in_uppercase(line):
+    """
+    Check if the line's first letter is in uppercase.
+    """
+    words = line.split(' ')
+    return words[0][0].isupper()
+
+
+def ends_with_period(line):
+    """
+    Check if line ends with period.
+    """
+    if line.strip()[-1] == '.':
+        return True
+    return False
+
+
+def line_is_more_than_one_words(line):
+    """
+    Check if line has more than one words.
+    """
+    words = line.split(' ')
+    if len(words) > 1:
+        return True
+    return False
+
+
+def remove_tags(line):
+    """
+    Remove any tags in front of the summary line.
+    """
+    words = line.split(' ')
+    fixd_line = ""
+    for i in range(0, len(words)):
+        if "[" not in words[i] and "]" not in words[i]:
+            fixd_line += words[i]
+            fixd_line += " "
+    fixd_line = fixd_line.strip()
+    return fixd_line
+
+
+def check_format_rules(lineno, line, IMPERATIVES, BLACKLIST_FIRST_WORDS):
+    """
+    Given a line number and a line, compare them against a set of
+    rules.  If it it fails a given rule, return an error message.  If
+    it passes all rules then return false.
+    """
+    # Since enumerate starts at 0
+    real_lineno = lineno + 1
+
+    errors = list()
+    if lineno == 0:
+        if len(line) > 50:
+            e_len_str = "Error: Line %d: First line should be " % (real_lineno,)
+            e_len_str = e_len_str + "less than 50 characters in length."
+            errors.append(e_len_str)
+        line = remove_tags(line)
+        if ends_with_period(line):
+            errors.append("Error: Line %d: First line should not end with period." % (
+                    real_lineno,))
+        if not first_letter_in_uppercase(line):
+            errors.append("Error: Line %d: First word should be in uppercase." % (real_lineno,))
+        if not is_in_imperative_mood(line, IMPERATIVES,
+                                     BLACKLIST_FIRST_WORDS):
+            e_imp_str = "Error: Line %d: First line should be in imperative mood. " % (
+                         real_lineno,)
+            e_imp_str = e_imp_str + "OK: Add, Update. NOT: Added, Updated."
+            errors.append(e_imp_str)
+        if not line_is_more_than_one_words(line):
+            e_word_str = "Error: Line %d: Commit message's first line " % (real_lineno,)
+            e_word_str += "should be more than one word."
+            errors.append(e_word_str)
+    if lineno == 1 and not line.startswith('#'):
+        if line:
+            errors.append("Error: Line %d: Second line should be empty." % (real_lineno,))
+    if lineno == 2 and not line.startswith('#'):
+        if not line_is_more_than_one_words(line):
+            e_word_str = "Error: Line %d: Write more than one " % (real_lineno,)
+            e_word_str += "word to description."
+            errors.append(e_word_str)
+    if not line.startswith('#') and lineno > 2:
+        if len(line) > 72:
+            errors.append("Error: Line %d: No line should be over 72 characters long." %(real_lineno,))
+    return errors
+
+
+# Collect the parameters
+commit_msg_filepath = sys.argv[1]
+
+errors = list()
+
+with open(commit_msg_filepath, 'r') as f:
+    content = f.readlines()
+    for lineno, line in enumerate(content):
+        stripped_line = line.strip()
+        e = check_format_rules(lineno, stripped_line,
+                               IMPERATIVES, BLACKLIST_FIRST_WORDS)
+        if e:
+            errors += e
+    if errors:
+        for error in errors:
+            print(error)
+        sys.exit(1)
+    else:
+        print("Commit is properly constructed, good job!")
+        # sys.exit(1)
