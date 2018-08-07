@@ -20,7 +20,7 @@ Example: `git commit -m "[Products] Add new product model"`
 Usage:
 
 Clone this repository or just copy the file `commit-msg` to your project's 
-git-hooks (`.git/hooks/`).
+git-hooks (`.git/hooks/`). *Remember to give it execution rights (chmod +x in Linux)*
 
 Dependencies:
 
