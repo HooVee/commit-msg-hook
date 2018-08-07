@@ -1,5 +1,5 @@
 # commit-msg-hook
-Git hook for better commit messages
+Git-hook for better commit messages
 
 This hook checks your commit messages according to following rules:
 
