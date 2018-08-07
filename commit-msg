@@ -12,8 +12,8 @@
 #  - Second line is empty
 #  - Description lines are 72 characters or less
 #  - Description is more than one word long.
-# The hook accepts tags in front of the commit message, for example
-# if you want to specify part of the project the commit refers to.
+# The hook accepts tags in front of the commit message subject line, 
+# for example if you want to specify part of the project the commit refers to.
 # Example: git commit -m "[Products] Add new product model"
 #
 # Author: HooVee
@@ -137,14 +137,15 @@ def remove_tags(line):
 
 def check_format_rules(lineno, line, IMPERATIVES, BLACKLIST_FIRST_WORDS):
     """
-    Given a line number and a line, compare them against a set of
-    rules.  If it it fails a given rule, return an error message.  If
-    it passes all rules then return false.
+    Check if given line passes a set of rules based on the number of the line.
+
+    Return list of errors to be printed.
     """
     # Since enumerate starts at 0
     real_lineno = lineno + 1
 
     errors = list()
+    # first line in commit message
     if lineno == 0:
         if len(line) > 50:
             e_len_str = "Error: Line %d: First line should be " % (real_lineno,)
@@ -166,25 +167,29 @@ def check_format_rules(lineno, line, IMPERATIVES, BLACKLIST_FIRST_WORDS):
             e_word_str = "Error: Line %d: Commit message's first line " % (real_lineno,)
             e_word_str += "should be more than one word."
             errors.append(e_word_str)
+    # second line in commit message
     if lineno == 1 and not line.startswith('#'):
         if line:
             errors.append("Error: Line %d: Second line should be empty." % (real_lineno,))
+    # third line in commit message
     if lineno == 2 and not line.startswith('#'):
         if not line_is_more_than_one_words(line):
             e_word_str = "Error: Line %d: Write more than one " % (real_lineno,)
             e_word_str += "word to description."
             errors.append(e_word_str)
+    # rest of the lines in commit message
     if not line.startswith('#') and lineno > 2:
         if len(line) > 72:
             errors.append("Error: Line %d: No line should be over 72 characters long." %(real_lineno,))
     return errors
 
 
-# Collect the parameters
+# Get the commit message file path
 commit_msg_filepath = sys.argv[1]
 
 errors = list()
 
+# read commit message line by line and check if line follows the rules
 with open(commit_msg_filepath, 'r') as f:
     content = f.readlines()
     for lineno, line in enumerate(content):
@@ -194,6 +199,7 @@ with open(commit_msg_filepath, 'r') as f:
         if e:
             errors += e
     if errors:
+        # print errors and fail the commit
         for error in errors:
             print(error)
         sys.exit(1)
