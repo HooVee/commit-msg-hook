@@ -1,3 +1,5 @@
+# Moved to GitLab: https://gitlab.com/hoovee/commit-msg-hook
+
 # commit-msg-hook
 Git-hook for better commit messages
 
